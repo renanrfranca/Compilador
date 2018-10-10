@@ -1,0 +1,43 @@
+Annot
+AnnotParam
+AssertStat
++ AssignExpr
+BasicType
+BasicValue
+BooleanValue
+* ClassDec
+CompStatement
+Digit
++ Expression
+ExpressionList
+Factor
+- FieldDec
++ FormalParamDec
+HighOperator
+IdList
+IfStat
+IntValue
+LocalDec
+LowOperator
+MemberList
+- Member
+- MethodDec
+ObjectCreation
++ ParamDec
+Program
+Qualifier
+10ReadExpr
+RepeatStat
+PrimaryExpr
+Relation
+ReturnStat
++ Signal                    // isSignal() verifica
+SignalFactor
++ SimpleExpression
++ SumSubExpression
+* Statement
+- StatementList             // Pequena duvida no Token.END
++ Term
+- Type
+WriteStat
+WhileStat
