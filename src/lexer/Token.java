@@ -42,6 +42,7 @@ public enum Token {
     OR("||"),
     OVERRIDE("override"),
     PLUS("+"),
+    PLUSPLUS("++"), // --------------- Criado por nós
     PRIVATE("private"),
     PUBLIC("public"),
     READ("read"),

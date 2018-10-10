@@ -144,6 +144,7 @@ public class Compiler {
 	private void classDec() {
 		if ( lexer.token == Token.ID && lexer.getStringValue().equals("open") ) {
 			// open class
+            next();
 		}
 		if ( lexer.token != Token.CLASS ) error("'class' expected");
 		lexer.nextToken();
@@ -205,7 +206,7 @@ public class Compiler {
 		}
 		else if ( lexer.token == Token.IDCOLON ) {
 			// keyword method. It has parameters
-
+            formalParamDec();
 		}
 		else {
 			error("An identifier or identifer: was expected after 'func'");
@@ -227,7 +228,26 @@ public class Compiler {
 
 	}
 
-	private void statementList() {
+    private void formalParamDec() {
+	    next();
+	    ParamDec();
+	    while (lexer.token == Token.COMMA){
+	        next(); // consome a virgula
+	        ParamDec();
+        }
+        next();
+    }
+
+    private void ParamDec() {
+	    type();
+        if ( lexer.token == Token.ID ) {
+            next();
+        } else {
+            error("An identifier or was expected after the type");
+        }
+    }
+
+    private void statementList() {
 		  // only '}' is necessary in this test
 		while ( lexer.token != Token.RIGHTCURBRACKET && lexer.token != Token.END ) {
 			statement();
@@ -268,7 +288,7 @@ public class Compiler {
 				writeStat();
 			}
 			else {
-				expr();
+				assignExpr();
 			}
 
 		}
@@ -293,7 +313,7 @@ public class Compiler {
 		if ( lexer.token == Token.ASSIGN ) {
 			next();
 			// check if there is just one variable
-			expr();
+			expression();
 		}
 
 	}
@@ -313,12 +333,12 @@ public class Compiler {
 
 	private void returnStat() {
 		next();
-		expr();
+		expression();
 	}
 
 	private void whileStat() {
 		next();
-		expr();
+		expression();
 		check(Token.LEFTCURBRACKET, "'{' expected after the 'while' expression");
 		next();
 		while ( lexer.token != Token.RIGHTCURBRACKET && lexer.token != Token.END ) {
@@ -329,7 +349,7 @@ public class Compiler {
 
 	private void ifStat() {
 		next();
-		expr();
+		expression();
 		check(Token.LEFTCURBRACKET, "'{' expected after the 'if' expression");
 		next();
 		while ( lexer.token != Token.RIGHTCURBRACKET && lexer.token != Token.END && lexer.token != Token.ELSE ) {
@@ -356,14 +376,57 @@ public class Compiler {
 		next();
 		check(Token.IDCOLON, "'print:' or 'println:' was expected after 'Out.'");
 		String printName = lexer.getStringValue();
-		expr();
+		expression();
 	}
 
-	private void expr() {
+	private void assignExpr(){
+	    expression();
+        if (lexer.token == Token.EQ){
+            next();
+            expression();
+        }
+        // next(); (expression vai dar next?)
+    }
 
+	private void expression() {
+        simpleExpression();
+        if (isRelation(lexer.token)){
+            relation();
+            simpleExpression();
+        }
+        // next dentro das funções
 	}
 
-	private void fieldDec() {
+    private void simpleExpression() {
+        SumSubExpression();
+        while (lexer.token == Token.PLUSPLUS){
+            next();
+            SumSubExpression();
+        }
+    }
+
+    private void SumSubExpression() {
+	    term();
+	    while (isLowOperator(lexer.token)) { // “+” | “−” | “||”
+	        term();
+        }
+    }
+
+    private void term() {
+	    signalFactor();
+        while (isHighOperator(lexer.token)) { // “∗” | “/” | “&&”
+            signalFactor();
+        }
+    }
+
+    private void signalFactor() {
+	    if (isSignal(lexer.token)){
+	        next();
+        }
+	    factor();
+    }
+
+    private void fieldDec() {
 		lexer.nextToken();
 		type();
 		if ( lexer.token != Token.ID ) {
@@ -432,7 +495,7 @@ public class Compiler {
 
 		lexer.nextToken();
 		int lineNumber = lexer.getLineNumber();
-		expr();
+		expression();
 		if ( lexer.token != Token.COMMA ) {
 			this.error("',' expected after the expression of the 'assert' statement");
 		}
@@ -472,6 +535,36 @@ public class Compiler {
 				|| token == Token.ID || token == Token.LITERALSTRING;
 
 	}
+
+
+    // ----------------------- Checagem ------------------------
+
+    private boolean isRelation(Token token) {
+        return  (token == Token.EQ) ||
+                (token == Token.GE) ||
+                (token == Token.GT) ||
+                (token == Token.LT) ||
+                (token == Token.LE) ||
+                (token == Token.NEQ);
+    }
+
+    private boolean isLowOperator(Token token) {
+	    return (token == Token.PLUS) ||
+                (token == Token.MINUS) ||
+                (token == Token.OR);
+    }
+
+    private boolean isHighOperator(Token token) {
+	    return (token == Token.MULT) ||
+                (token == Token.DIV) ||
+                (token == Token.AND);
+    }
+
+    private boolean isSignal(Token token) {
+        return (token == Token.PLUS) ||
+                (token == Token.MINUS);
+    }
+
 
 	private SymbolTable		symbolTable;
 	private Lexer			lexer;
