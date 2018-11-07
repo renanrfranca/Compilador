@@ -391,10 +391,17 @@ public class Compiler {
 	private void expression() {
         simpleExpression();
         if (isRelation(lexer.token)){
-            relation();
+            next();
             simpleExpression();
         }
         // next dentro das funções
+	}
+
+	private void expressionList() {
+		expression(); // Next
+		while (lexer.token == Token.COMMA) {
+			expression();
+		}
 	}
 
     private void simpleExpression() {
@@ -426,7 +433,129 @@ public class Compiler {
 	    factor();
     }
 
-    private void fieldDec() {
+	private void factor() {
+		if (isBasicValue(lexer.token)) {
+			next();
+			return;
+		}
+
+		if (lexer.token == Token.LEFTPAR){
+			next();
+			expression();
+			if (lexer.token != Token.RIGHTPAR)
+				error("A right parenthesis was expected");
+			next();
+			return;
+		}
+
+		if (lexer.token == Token.NOT){
+			next();
+			factor(); // Já faz next;
+			return;
+		}
+
+		if (lexer.token == Token.NULL){
+			next();
+			return;
+		}
+
+		// ObjectCreation foi mesclado com o primaryExpression!
+		if (lexer.token == Token.ID ||
+			lexer.token == Token.SUPER ||
+			lexer.token == Token.SELF ||
+			lexer.token == Token.IN)
+		{
+			primaryExpression();
+			return;
+		}
+	}
+
+	// readExpression e objectCreation mesclados
+	private void primaryExpression() {
+		if (lexer.token == Token.SUPER){
+			next();
+			if (lexer.token != Token.DOT)
+				error("Dot expected.");
+			next();
+			if (lexer.token == Token.IDCOLON){
+				next();
+				expressionList();
+			} else if (lexer.token == Token.ID) {
+				next();
+			} else {
+				error("An identifier was expected after the dot");
+			}
+			return;
+		}
+
+		if (lexer.token == Token.ID) {
+			next();
+			if (lexer.token == Token.DOT){
+				if (lexer.token == Token.ID){
+					next();
+					return;
+				}
+
+				if (lexer.token == Token.IDCOLON){
+					next();
+					expressionList();
+					return;
+				}
+
+				// objectCreation mesclado
+				if (lexer.token == Token.NEW){
+					next();
+					return;
+				}
+			}
+			return;
+		}
+
+		if (lexer.token == Token.SELF){
+			next();
+			if (lexer.token == Token.DOT){
+				next();
+				if (lexer.token == Token.ID){
+					next();
+
+					if (lexer.token == Token.DOT){
+						next();
+						if (lexer.token == Token.ID){
+							next();
+							return;
+						}
+						if (lexer.token == Token.IDCOLON){
+							next();
+							expressionList();
+							return;
+						}
+						error("Id expected");
+					}
+
+					return;
+				}
+
+				if (lexer.token == Token.IDCOLON){
+					next();
+					expressionList();
+					return;
+				}
+			}
+			return;
+		}
+
+		if (lexer.token == Token.IN){
+			next();
+			check(Token.DOT, "Dot expected");
+			next();
+			if (lexer.token != Token.READINT && lexer.token != Token.READSTRING)
+				error("readInt or readString expected");
+			next();
+			return;
+		}
+	}
+
+	private void fieldDec() {
 		lexer.nextToken();
 		type();
 		if ( lexer.token != Token.ID ) {
@@ -444,6 +573,14 @@ public class Compiler {
 			}
 		}
 
+	}
+
+	private void basicValue(){
+		if (lexer.token == Token.LITERALINT || lexer.token == Token.TRUE || lexer.token == Token.FALSE || lexer.token == Token.LITERALSTRING ) {
+			next();
+		} else {
+			this.error("An integer, string or boolean value was expected");
+		}
 	}
 
 	private void type() {
@@ -564,6 +701,10 @@ public class Compiler {
         return (token == Token.PLUS) ||
                 (token == Token.MINUS);
     }
+
+    private boolean isBasicValue(Token token){
+		return (lexer.token == Token.LITERALINT || lexer.token == Token.TRUE || lexer.token == Token.FALSE || lexer.token == Token.LITERALSTRING );
+	}
 
 
 	private SymbolTable		symbolTable;

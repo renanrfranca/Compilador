@@ -3,14 +3,14 @@ AnnotParam
 AssertStat
 + AssignExpr
 BasicType
-BasicValue
++ BasicValue
 BooleanValue
 * ClassDec
 CompStatement
 Digit
 + Expression
-ExpressionList
-Factor
++ ExpressionList
++ Factor
 - FieldDec
 + FormalParamDec
 HighOperator
@@ -22,14 +22,14 @@ LowOperator
 MemberList
 - Member
 - MethodDec
-ObjectCreation
++ ObjectCreation
 + ParamDec
 Program
 Qualifier
-10ReadExpr
++ ReadExpr
 RepeatStat
-PrimaryExpr
-Relation
++ PrimaryExpr
++ Relation // isRelation
 ReturnStat
 + Signal                    // isSignal() verifica
 SignalFactor

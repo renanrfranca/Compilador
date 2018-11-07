@@ -25,6 +25,7 @@ public enum Token {
     ID("~ident"),
     IDCOLON("~ident:"),
     IF("if"),
+    IN("In"),
     INT("Int"),
     LE("<="),
     LEFTCURBRACKET("{"),
@@ -45,7 +46,8 @@ public enum Token {
     PLUSPLUS("++"), // --------------- Criado por nós
     PRIVATE("private"),
     PUBLIC("public"),
-    READ("read"),
+    READINT("readInt"),
+    READSTRING("readString"),
     REPEAT("repeat"),
     RETURN("return"),
     RIGHTCURBRACKET("}"),
