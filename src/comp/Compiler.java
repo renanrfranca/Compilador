@@ -197,6 +197,16 @@ public class Compiler {
 		}
 	}
 
+	private void idList(){
+        next();
+        idList();
+        while (lexer.token == Token.COMMA){
+            next(); // consome a virgula
+            idList();
+        }
+        next();
+    }
+
 	private void methodDec() {
 		lexer.nextToken();
 		if ( lexer.token == Token.ID ) {
@@ -367,6 +377,11 @@ public class Compiler {
 		}
 	}
 
+	private void intValue() {
+	    next();
+	    check(Token.LITERALINT, "Número inteiro esperado");
+    }
+
 	/**
 
 	 */
@@ -450,7 +465,7 @@ public class Compiler {
 
 		if (lexer.token == Token.NOT){
 			next();
-			factor(); // Já faz next;
+			factor(); // Já fif (lexer.token != Token.READINT && lexer.token != Token.az next;
 			return;
 		}
 
@@ -543,16 +558,6 @@ public class Compiler {
 			}
 			return;
 		}
-
-		if (lexer.token == Token.IN){
-			next();
-			check(Token.DOT, "Dot expected");
-			next();
-			if (lexer.token != Token.READINT && lexer.token != Token.READSTRING)
-				error("readInt or readString expected");
-			next();
-			return;
-		}
 	}
 
 	private void fieldDec() {
@@ -575,6 +580,17 @@ public class Compiler {
 
 	}
 
+	private void basicType(){
+	    if (lexer.token == Token.INT ||
+            lexer.token == Token.BOOLEAN ||
+            lexer.token == Token.STRING
+        ){
+            next();
+        } else {
+            this.error("Keywords \"Int\", \"Boolean\" or \"String\" expected");
+        }
+    }
+
 	private void basicValue(){
 		if (lexer.token == Token.LITERALINT || lexer.token == Token.TRUE || lexer.token == Token.FALSE || lexer.token == Token.LITERALSTRING ) {
 			next();
@@ -582,6 +598,26 @@ public class Compiler {
 			this.error("An integer, string or boolean value was expected");
 		}
 	}
+
+	private void booleanValue(){
+	    if (lexer.token == Token.TRUE || lexer.token == Token.FALSE){
+	        next();
+        } else {
+	        error("True or False expected");
+        }
+    }
+
+    private void CompStatement(){
+	    if (lexer.token != Token.LEFTCURBRACKET){
+	        error("LEft bracket expected");
+        }
+        next();
+        statementList();
+        if (lexer.token != Token.EOF){
+            error("closing bracket expected");
+        }
+        next();
+    }
 
 	private void type() {
 		if ( lexer.token == Token.INT || lexer.token == Token.BOOLEAN || lexer.token == Token.STRING ) {
@@ -642,8 +678,6 @@ public class Compiler {
 		}
 		String message = lexer.getLiteralStringValue();
 		lexer.nextToken();
-		if ( lexer.token == Token.SEMICOLON )
-			lexer.nextToken();
 
 		return null;
 	}

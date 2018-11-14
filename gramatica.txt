@@ -1,43 +1,43 @@
-Annot
-AnnotParam
-AssertStat
+- Annot
+- AnnotParam
+- AssertStat
 + AssignExpr
-BasicType
++ BasicType
 + BasicValue
-BooleanValue
++ BooleanValue
 * ClassDec
-CompStatement
-Digit
++ CompStatement
++ Digit
 + Expression
 + ExpressionList
 + Factor
 - FieldDec
 + FormalParamDec
-HighOperator
-IdList
-IfStat
-IntValue
-LocalDec
-LowOperator
-MemberList
++ HighOperator              // isHighOperator
++ IdList
+- IfStat
++ IntValue
++ LocalDec
++ LowOperator               // isLowOperator
+- MemberList
 - Member
 - MethodDec
 + ObjectCreation
 + ParamDec
-Program
-Qualifier
+- Program
+- Qualifier
 + ReadExpr
-RepeatStat
+- RepeatStat
 + PrimaryExpr
 + Relation // isRelation
-ReturnStat
+- ReturnStat
 + Signal                    // isSignal() verifica
-SignalFactor
+- SignalFactor
 + SimpleExpression
 + SumSubExpression
 * Statement
 - StatementList             // Pequena duvida no Token.END
 + Term
 - Type
-WriteStat
-WhileStat
+- WriteStat
+- WhileStat

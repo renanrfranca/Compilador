@@ -46,8 +46,6 @@ public enum Token {
     PLUSPLUS("++"), // --------------- Criado por nós
     PRIVATE("private"),
     PUBLIC("public"),
-    READINT("readInt"),
-    READSTRING("readString"),
     REPEAT("repeat"),
     RETURN("return"),
     RIGHTCURBRACKET("}"),
