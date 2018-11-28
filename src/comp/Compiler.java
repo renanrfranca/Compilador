@@ -304,6 +304,7 @@ public class Compiler {
 		}
 		if ( checkSemiColon ) {
 			check(Token.SEMICOLON, "';' expected");
+			next();
 		}
 	}
 
@@ -391,12 +392,14 @@ public class Compiler {
 		next();
 		check(Token.IDCOLON, "'print:' or 'println:' was expected after 'Out.'");
 		String printName = lexer.getStringValue();
+		next();
+
 		expression();
 	}
 
 	private void assignExpr(){
 	    expression();
-        if (lexer.token == Token.EQ){
+        if (lexer.token == Token.ASSIGN){
             next();
             expression();
         }
@@ -415,6 +418,7 @@ public class Compiler {
 	private void expressionList() {
 		expression(); // Next
 		while (lexer.token == Token.COMMA) {
+			next();
 			expression();
 		}
 	}
@@ -483,9 +487,12 @@ public class Compiler {
 			primaryExpression();
 			return;
 		}
+
+		// Se não caiu em nenhum dos casos, não é uma expressão
+		error("Expression expected");
 	}
 
-	// readExpression e objectCreation mesclados
+	// objectCreation mesclado
 	private void primaryExpression() {
 		if (lexer.token == Token.SUPER){
 			next();
@@ -506,6 +513,7 @@ public class Compiler {
 		if (lexer.token == Token.ID) {
 			next();
 			if (lexer.token == Token.DOT){
+				next();
 				if (lexer.token == Token.ID){
 					next();
 					return;
@@ -524,6 +532,10 @@ public class Compiler {
 				}
 			}
 			return;
+		}
+
+		if (lexer.token == Token.IN){
+			readExpr();
 		}
 
 		if (lexer.token == Token.SELF){
@@ -558,6 +570,14 @@ public class Compiler {
 			}
 			return;
 		}
+	}
+
+	private void readExpr() {
+		next();
+		check(Token.DOT, "A dot was expected");
+		next();
+
+		check(Token.ID, "Command 'In.' without arguments");
 	}
 
 	private void fieldDec() {
