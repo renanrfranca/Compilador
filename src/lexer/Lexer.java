@@ -90,6 +90,9 @@ public class Lexer {
                     ident.append(input[tokenPos]);
                     tokenPos++;
                 	stringValue = ident.toString();
+                	if (stringValue.equals("new:")){
+                	    error.showError("';' expected");
+                    }
                 	token = Token.IDCOLON;
                 }
                 else {
@@ -161,6 +164,9 @@ public class Lexer {
                         token = Token.EQ;
                       }
                       else
+                          if (input[tokenPos] == '<' || input[tokenPos] == '>'){
+                              error.showError("invalid sequence of symbols");
+                          }
                         token = Token.ASSIGN;
                       break;
                     case '!' :

@@ -187,13 +187,25 @@ public class Compiler {
 		this.signalError.showError(msg);
 	}
 
+	private void errorLastToken(String msg) {
+		this.signalError.showError(msg, true);
+	}
+
 	private void next() {
 		lexer.nextToken();
 	}
 
 	private void check(Token shouldBe, String msg) {
+		check(shouldBe, msg, false);
+	}
+
+	private void check(Token shouldBe, String msg, boolean goPreviousToken) {
 		if ( lexer.token != shouldBe ) {
-			error(msg);
+			if (goPreviousToken){
+				errorLastToken(msg);
+			} else {
+				error(msg);
+			}
 		}
 	}
 
@@ -232,7 +244,7 @@ public class Compiler {
 		next();
 		statementList();
 		if ( lexer.token != Token.RIGHTCURBRACKET ) {
-			error("'{' expected");
+			error("'}' expected");
 		}
 		next();
 
@@ -245,7 +257,6 @@ public class Compiler {
 	        next(); // consome a virgula
 	        ParamDec();
         }
-        next();
     }
 
     private void ParamDec() {
@@ -298,6 +309,12 @@ public class Compiler {
 				writeStat();
 			}
 			else {
+				if ( lexer.token == Token.IDCOLON){
+					if (lexer.getStringValue().equals("print:") ||
+							lexer.getStringValue().equals("println:")){
+						error("Missing 'Out.'");
+					}
+				}
 				assignExpr();
 			}
 
@@ -311,14 +328,15 @@ public class Compiler {
 	private void localDec() {
 		next();
 		type();
-		check(Token.ID, "A variable name was expected");
+		check(Token.ID, "Identifier expected");
 		while ( lexer.token == Token.ID ) {
 			next();
 			if ( lexer.token == Token.COMMA ) {
 				next();
+				check(Token.ID, "Missing identifier");
 			}
 			else {
-				break;
+				check(Token.SEMICOLON, "Missing ';'", true);
 			}
 		}
 		if ( lexer.token == Token.ASSIGN ) {
@@ -335,6 +353,8 @@ public class Compiler {
 			statement();
 		}
 		check(Token.UNTIL, "'until' was expected");
+		next();
+		expression();
 	}
 
 	private void breakStat() {
@@ -356,6 +376,7 @@ public class Compiler {
 			statement();
 		}
 		check(Token.RIGHTCURBRACKET, "'}' was expected");
+		next();
 	}
 
 	private void ifStat() {
@@ -412,6 +433,11 @@ public class Compiler {
             next();
             simpleExpression();
         }
+
+//        if (lexer.token == Token.ASSIGN){ Gambiarra que deu errado
+//        	error("Expression expected");
+//		}
+
         // next dentro das funções
 	}
 
@@ -425,7 +451,9 @@ public class Compiler {
 
     private void simpleExpression() {
         SumSubExpression();
-        while (lexer.token == Token.PLUSPLUS){
+        while (lexer.token == Token.PLUS){
+        	next();
+            check(Token.PLUS, "\"++\" expected!");
             next();
             SumSubExpression();
         }
@@ -441,6 +469,7 @@ public class Compiler {
     private void term() {
 	    signalFactor();
         while (isHighOperator(lexer.token)) { // “∗” | “/” | “&&”
+        	next();
             signalFactor();
         }
     }
@@ -462,7 +491,7 @@ public class Compiler {
 			next();
 			expression();
 			if (lexer.token != Token.RIGHTPAR)
-				error("A right parenthesis was expected");
+				error("')' expected");
 			next();
 			return;
 		}
@@ -511,6 +540,9 @@ public class Compiler {
 		}
 
 		if (lexer.token == Token.ID) {
+			if (lexer.getStringValue().equals("readInt")){
+				error("'In.' expected before 'read' command");
+			}
 			next();
 			if (lexer.token == Token.DOT){
 				next();
@@ -578,6 +610,7 @@ public class Compiler {
 		next();
 
 		check(Token.ID, "Command 'In.' without arguments");
+		next();
 	}
 
 	private void fieldDec() {
