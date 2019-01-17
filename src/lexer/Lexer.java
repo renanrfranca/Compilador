@@ -163,11 +163,13 @@ public class Lexer {
                         tokenPos++;
                         token = Token.EQ;
                       }
-                      else
-                          if (input[tokenPos] == '<' || input[tokenPos] == '>'){
+                      else {
+                          if (input[tokenPos] == '<' || input[tokenPos] == '>') {
                               error.showError("invalid sequence of symbols");
+                          } else {
+                            token = Token.ASSIGN;
                           }
-                        token = Token.ASSIGN;
+                      }
                       break;
                     case '!' :
                       if ( input[tokenPos] == '=' ) {

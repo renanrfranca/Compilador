@@ -178,6 +178,9 @@ public class Compiler {
 				methodDec();
 			}
 			else {
+				if (lexer.token == Token.SEMICOLON){
+					next();
+				}
 				break;
 			}
 		}
@@ -293,7 +296,7 @@ public class Compiler {
 			breakStat();
 			break;
 		case SEMICOLON:
-			next();
+//			next();
 			break;
 		case REPEAT:
 			repeatStat();
@@ -320,7 +323,7 @@ public class Compiler {
 
 		}
 		if ( checkSemiColon ) {
-			check(Token.SEMICOLON, "';' expected");
+			check(Token.SEMICOLON, "';' expected", true);
 			next();
 		}
 	}
@@ -388,6 +391,7 @@ public class Compiler {
 			statement();
 		}
 		check(Token.RIGHTCURBRACKET, "'}' was expected");
+		next();
 		if ( lexer.token == Token.ELSE ) {
 			next();
 			check(Token.LEFTCURBRACKET, "'{' expected after 'else'");
@@ -396,6 +400,7 @@ public class Compiler {
 				statement();
 			}
 			check(Token.RIGHTCURBRACKET, "'}' was expected");
+			next();
 		}
 	}
 
@@ -462,6 +467,7 @@ public class Compiler {
     private void SumSubExpression() {
 	    term();
 	    while (isLowOperator(lexer.token)) { // “+” | “−” | “||”
+	    	next();
 	        term();
         }
     }
@@ -626,6 +632,9 @@ public class Compiler {
 					lexer.nextToken();
 				}
 				else {
+					if (lexer.token == Token.SEMICOLON){
+						next();
+					}
 					break;
 				}
 			}
