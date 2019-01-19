@@ -3,22 +3,41 @@ package ast;
  * Open Class
  */
 public class CianetoClass extends Type {
-   private String name;
-   private CianetoClass superclass;
+   private String className;
+   private CianetoClass superClass;
    private MemberList memberList;
    private boolean open = false;
 
-   public CianetoClass(String name ) {
-      super(name);
+   public CianetoClass(String name) {
+      super("CiaClass");
+      this.className = name;
       memberList = new MemberList();
    }
 
-   public void setSuperclass(CianetoClass superclass) {
-      this.superclass = superclass;
+   @Override
+   public boolean isCompatible(Type other) {
+      CianetoClass ciaClass;
+
+      if (other.getName().equals("CiaClass")){
+         ciaClass = (CianetoClass) other;
+
+         if (ciaClass.className.equals(this.className)){
+            return true;
+         } else {
+            if (this.superClass != null) {
+               return this.superClass.isCompatible(other);
+            }
+         }
+      }
+      return false;
    }
 
-   public CianetoClass getSuperclass() {
-      return superclass;
+   public void setSuperClass(CianetoClass superClass) {
+      this.superClass = superClass;
+   }
+
+   public CianetoClass getSuperClass() {
+      return superClass;
    }
 
    public boolean isOpen() {

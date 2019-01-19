@@ -519,36 +519,55 @@ public class Compiler {
         // next(); (expression vai dar next?)
     }
 
-	private void expression() {
-        simpleExpression();
+	private Expr expression() {
+		Expr left;
+		Token op;
+		Expr right;
+
+        left = simpleExpression();
+
         if (isRelation(lexer.token)){
-            next();
-            simpleExpression();
+			op = relation();
+            right = simpleExpression();
+
+            if (! left.getType().isCompatible(right.getType())){
+            	error("Incompatible types");
+			}
+            CompositeExpr ce = new CompositeExpr(left, op, right);
+            return ce;
         }
 
-//        if (lexer.token == Token.ASSIGN){ Gambiarra que deu errado
-//        	error("Expression expected");
-//		}
-
-        // next dentro das funções
+        return left;
 	}
 
 	private void expressionList() {
-		expression(); // Next
+		ExpressionList exprList = new ExpressionList();
+
+		exprList.addElement(expression()); // Next
 		while (lexer.token == Token.COMMA) {
 			next();
 			expression();
 		}
 	}
 
-    private void simpleExpression() {
-        SumSubExpression();
-        while (lexer.token == Token.PLUS){
-        	next();
-            check(Token.PLUS, "\"++\" expected!");
-            next();
-            SumSubExpression();
-        }
+    private Expr simpleExpression() {
+		Expr left = SumSubExpression();
+
+		while (lexer.token == Token.PLUS){
+			next();
+			check(Token.PLUS, "\"++\" expected!");
+			next();
+			if (left.getType() != Type.stringType && left.getType() != Type.intType){
+				error("Type must be String or Int");
+			}
+			Expr right = SumSubExpression();
+			if (right.getType() != Type.stringType && right.getType() != Type.intType){
+				error("Type must be String or Int");
+			}
+
+			left = new LiteralString("Expression");
+		}
+		return left;
     }
 
     private void SumSubExpression() {
@@ -623,7 +642,7 @@ public class Compiler {
 	}
 
 	// objectCreation mesclado
-	private void primaryExpression() {
+	private Expr primaryExpression() {
 		if (lexer.token == Token.SUPER){
 			next();
 			if (lexer.token != Token.DOT)
@@ -705,13 +724,26 @@ public class Compiler {
 		}
 	}
 
-	private void readExpr() {
+	private ReadExpr readExpr() {
+		String methodName;
 		next();
 		check(Token.DOT, "A dot was expected");
 		next();
 
 		check(Token.ID, "Command 'In.' without arguments");
+		methodName = lexer.getStringValue();
 		next();
+
+		if (methodName.equals("readInt")){
+			return new ReadExpr(Type.intType);
+		}
+
+		if (methodName.equals("readString")){
+			return new ReadExpr(Type.stringType);
+		} else {
+			error("Method" + methodName + "does not exist");
+			return null;
+		}
 	}
 
 	private Field fieldDec() {
@@ -902,10 +934,18 @@ public class Compiler {
 
 	}
 
+	private Token relation(){
+		Token token = lexer.token;
+		next();
+		return token;
+	}
+
 
     // ----------------------- Checagem ------------------------
 
-    private boolean isRelation(Token token) {
+    private boolean isRelation() {
+		Token token = lexer.token;
+
         return  (token == Token.EQ) ||
                 (token == Token.GE) ||
                 (token == Token.GT) ||

@@ -7,8 +7,10 @@ public class TypeNull extends Type {
 	}
 
 	@Override
-	public String getCname() {
-		return "NULL";
+	public boolean isCompatible(Type other) {
+		if (other.getName().equals("String") || other.getName().equals("CiaClass")){
+			return true;
+		}
+		return false;
 	}
-
 }
