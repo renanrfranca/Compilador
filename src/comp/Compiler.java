@@ -292,7 +292,7 @@ public class Compiler {
 			// keyword method. It has parameters
 			methodName = lexer.getStringValue();
 			m = new Method(methodName);
-			if (methodName.equals("run"){
+			if (methodName.equals("run")){
 				error("Method run doesn't accepts any parameters");
 			}
 
@@ -540,14 +540,16 @@ public class Compiler {
         return left;
 	}
 
-	private void expressionList() {
+	private ExpressionList expressionList() {
 		ExpressionList exprList = new ExpressionList();
 
 		exprList.addElement(expression()); // Next
 		while (lexer.token == Token.COMMA) {
 			next();
-			expression();
+            exprList.addElement(expression());
 		}
+
+		return exprList;
 	}
 
     private Expr simpleExpression() {
@@ -570,7 +572,7 @@ public class Compiler {
 		return left;
     }
 
-    private void SumSubExpression() {
+    private Expr SumSubExpression() {
 	    term();
 	    while (isLowOperator(lexer.token)) { // “+” | “−” | “||”
 	    	next();
@@ -643,47 +645,103 @@ public class Compiler {
 
 	// objectCreation mesclado
 	private Expr primaryExpression() {
-		if (lexer.token == Token.SUPER){
+        String name;
+        Method m;
+
+	    if (lexer.token == Token.SUPER){
+            CianetoClass superClass = currentClass.getSuperClass();
+		    if (superClass == null){
+		        error("Class " + currentClass.getName() + " has no super class");
+            }
 			next();
 			if (lexer.token != Token.DOT)
 				error("Dot expected.");
 			next();
 			if (lexer.token == Token.IDCOLON){
+                name = lexer.getStringValue();
+                m = superClass.getPublicMethod(name);
+
+                if (m == null){
+                    error("Method not found in super class");
+                }
 				next();
-				expressionList();
+                ExpressionList exprList = expressionList();
+
+                int valid = m.checkParams(exprList);
+
+                if (valid == -1)
+                    error("Method " + m.getName() + " requires exactly" + m.getParamList().size() + " parameters");
+
+                if (valid > 0)
+                    error("Param " + valid + " of incompatible type. Expected: " + m.getParamList().getField(valid).getType().getName());
+
+                return m;
+
 			} else if (lexer.token == Token.ID) {
+			    name = lexer.getStringValue();
+			    m = superClass.getMethod(name);
+
 				next();
+			    return m;
 			} else {
 				error("An identifier was expected after the dot");
 			}
-			return;
 		}
 
 		if (lexer.token == Token.ID) {
 			if (lexer.getStringValue().equals("readInt")){
 				error("'In.' expected before 'read' command");
 			}
+			name = lexer.getStringValue();
+
 			next();
+
 			if (lexer.token == Token.DOT){
-				next();
-				if (lexer.token == Token.ID){
-					next();
-					return;
-				}
+			    Field param = currentMethod.getParam(name);
 
-				if (lexer.token == Token.IDCOLON){
-					next();
-					expressionList();
-					return;
-				}
+			    if (param != null){
+                    if (lexer.token == Token.ID){
+                        if (! param.getType().equals("CiaClass")){
+                            error("Trying invoke a method or variable of something that is not a class");
+                        }
+                        name = lexer.getStringValue();
+                        Method m =
+                        next();
+                        return;
+                    }
 
-				// objectCreation mesclado
-				if (lexer.token == Token.NEW){
-					next();
-					return;
-				}
-			}
-			return;
+                    if (lexer.token == Token.IDCOLON){
+                        next();
+                        expressionList();
+                        return;
+                    }
+                } else {
+                    CianetoClass cianetoClass = symbolTable.getInGlobal(name);
+			        if (cianetoClass == null){
+			            error(name + " is not a parameter or a class.");
+                    }
+			        next();
+                    // objectCreation mesclado
+                    if (lexer.token == Token.NEW){
+                        next();
+                        ObjectCreation oc = new ObjectCreation(cianetoClass);
+                        return oc;
+                    } else {
+                        error("'new' expected");
+                        return null;
+                    }
+                }
+
+			    next();
+
+
+
+			} else {
+                Field variable = currentClass.getField(name);
+                if (variable == null)
+                    error("Variable " + name + "does not exist.");
+                return variable;
+            }
 		}
 
 		if (lexer.token == Token.IN){
@@ -759,7 +817,7 @@ public class Compiler {
 		}
 
 		while ( lexer.token == Token.ID  ) {
-			fieldName = lexer.getStringValue()
+			fieldName = lexer.getStringValue();
 			if (symbolTable.getInLocal(fieldName) != null){
 				error("Variable " + fieldName + " already exists");
 			}
@@ -793,12 +851,34 @@ public class Compiler {
         }
     }
 
-	private void basicValue(){
-		if (lexer.token == Token.LITERALINT || lexer.token == Token.TRUE || lexer.token == Token.FALSE || lexer.token == Token.LITERALSTRING ) {
+	private Expr basicValue(){
+	    LiteralInt i;
+	    LiteralString s;
+
+	    if (lexer.token == Token.LITERALINT){
+	        i = new LiteralInt(lexer.getNumberValue());
+	        next();
+	        return i;
+        }
+
+		if (lexer.token == Token.TRUE || lexer.token == Token.FALSE){
+		    if (lexer.token == Token.TRUE) {
+                next();
+                return LiteralBoolean.True;
+            } else {
+		        next();
+		        return LiteralBoolean.False;
+            }
+        }
+
+		if (lexer.token == Token.LITERALSTRING) {
+		    s = new LiteralString(lexer.getLiteralStringValue());
 			next();
-		} else {
-			this.error("An integer, string or boolean value was expected");
+			return s;
 		}
+
+        this.error("An integer, string or boolean value was expected");
+		return null;
 	}
 
 	private void booleanValue(){
@@ -943,8 +1023,7 @@ public class Compiler {
 
     // ----------------------- Checagem ------------------------
 
-    private boolean isRelation() {
-		Token token = lexer.token;
+    private boolean isRelation(Token token) {
 
         return  (token == Token.EQ) ||
                 (token == Token.GE) ||
@@ -979,5 +1058,7 @@ public class Compiler {
 	private SymbolTable		symbolTable;
 	private Lexer			lexer;
 	private ErrorSignaller	signalError;
+	private CianetoClass    currentClass;
+	private Method          currentMethod;
 
 }

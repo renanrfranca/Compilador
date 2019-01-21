@@ -39,7 +39,7 @@ public class SymbolTable {
     }
 
     public Field putInFunc(String name, Field value){
-        return funcTable.put(name, value)
+        return funcTable.put(name, value);
     }
 
     //remover a localTable

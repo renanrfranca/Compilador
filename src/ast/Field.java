@@ -14,6 +14,7 @@ public class Field extends Member {
         return name;
     }
 
+    @Override
     public Type getType() {
         return type;
     }

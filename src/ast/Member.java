@@ -1,6 +1,6 @@
 package ast;
 
-abstract public class Member {
+abstract public class Member extends Expr {
     String name;
 
     public Member(String name){
