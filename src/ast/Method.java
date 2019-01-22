@@ -1,11 +1,8 @@
 package ast;
 
-import java.util.ArrayList;
-
 public class Method extends Member {
     private Qualifiers qualifiers;
-    private String name;
-    private Type returnType;
+    private Type returnType = Type.nullType;
     private FieldList params;
     private StatementList statementList;
 
@@ -16,6 +13,10 @@ public class Method extends Member {
 
     public void setReturnType(Type returnType) {
         this.returnType = returnType;
+    }
+
+    public Type getReturnType() {
+        return returnType;
     }
 
     public void setQualifiers(Qualifiers qualifiers) {
@@ -36,11 +37,6 @@ public class Method extends Member {
 
     public FieldList getParamList(){
         return params;
-    }
-
-    @Override
-    public String getName() {
-        return this.name;
     }
 
     public Qualifiers getQualifiers() {

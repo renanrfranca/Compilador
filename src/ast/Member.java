@@ -7,5 +7,7 @@ abstract public class Member extends Expr {
         this.name = name;
     }
 
-    abstract public String getName();
+    public String getName(){
+        return this.name;
+    }
 }

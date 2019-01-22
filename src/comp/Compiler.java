@@ -164,8 +164,9 @@ public class Compiler {
 
         ciaClass = new CianetoClass(className);
         ciaClass.setOpen(open);
-		lexer.nextToken();
+        currentClass = ciaClass;
 
+		lexer.nextToken();
 		if ( lexer.token == Token.EXTENDS ) {
 			lexer.nextToken();
 			if ( lexer.token != Token.ID )
@@ -202,6 +203,7 @@ public class Compiler {
 		}
 
 		symbolTable.removeLocalTable();
+		symbolTable.putInGlobal(className, ciaClass);
 		return ciaClass;
 	}
 
@@ -297,7 +299,7 @@ public class Compiler {
 			// keyword method. It has parameters
 			methodName = lexer.getStringValue();
 			m = new Method(methodName);
-			if (methodName.equals("run")){
+			if (methodName.equals("run:")){
 				error("Method run doesn't accepts any parameters");
 			}
 
@@ -373,10 +375,23 @@ public class Compiler {
     }
 
     private StatementList statementList() {
+		boolean hasReturnStat = false;
+		Statement s;
+
 		StatementList sl = new StatementList();
 		  // only '}' is necessary in this test
 		while ( lexer.token != Token.RIGHTCURBRACKET && lexer.token != Token.END ) {
-			sl.addElement(statement());
+			s = statement();
+			if (s instanceof ReturnStat){
+				hasReturnStat = true;
+			}
+			sl.addElement(s);
+		}
+
+		if (currentMethod.getType() != Type.nullType){
+			if (!hasReturnStat){
+				error("Missing 'return' statement in method '" + currentMethod.getName() + "'");
+			}
 		}
 
 		return sl;
@@ -449,7 +464,7 @@ public class Compiler {
 		while ( lexer.token == Token.ID ) {
 			name = lexer.getStringValue();
 			if (symbolTable.getInFunc(name) != null){
-				error("There's already a variable or parameter " + name);
+				error("Variable or parameter " + name + "is being redeclared");
 			}
 			f = new Field(name, t);
 			symbolTable.putInFunc(name, f);
@@ -615,8 +630,8 @@ public class Compiler {
 		next();
 
 		expr = expression();
-		if (! expr.getType().isCompatible(Type.stringType)) {
-			error("Write expression must be of type string");
+		if (! expr.getType().isPrintable()) {
+			error("Write expression must be of type string or int");
 		}
 
 		return new WriteStat(expr, ln);
@@ -625,21 +640,27 @@ public class Compiler {
 	//	Semântico feito
 	private AssignStat assignExpr(){
 		Expr left;
-		boolean hasAssign = false;
-		Expr right = null;
+		Expr right;
+		AssignStat returnStatement;
 
 		left = expression();
         if (lexer.token == Token.ASSIGN){
-        	hasAssign = true;
-            next();
+        	if (! (left instanceof Field)){
+        		error("variable expected at the left-hand side of a assignment");
+			}
+        	next();
             right = expression();
-        }
 
-        if (! right.getType().isCompatible(left.getType())) {
-			error("Invalid types");
+			if (! right.getType().isCompatible(left.getType())) {
+				error("'" + right.getType().getName() + "' cannot be assigned to '" + left.getType().getName() + "'");
+			}
+
+			returnStatement = new AssignStat(left, true, right);
+        } else {
+        	returnStatement = new AssignStat(left, false, null);
 		}
 
-        return new AssignStat(left, hasAssign, right);
+        return returnStatement;
     }
 
     // Semântico feito
@@ -709,16 +730,17 @@ public class Compiler {
 	    	next();
 	        right = term();
 
-	        if (left.getType() != right.getType()) {
-				error("The operation expects values of the same type");
-			}
+//	        if (left.getType() != right.getType()) {
+//				error("The operation expects values of the same type");
+//			}
 
 	        if (op == Token.PLUS || op == Token.MINUS) {
-				if (right.getType() != Type.intType) {
-					error("Can't use '+' or '-' operator with non int expressions");
+	        	if (left.getType() != Type.intType || right.getType() != Type.intType) {
+	        		error("operator '" + op + "' of 'Int' expects an 'Int' value");
 				}
+
 			} else {
-				if (right.getType() != Type.booleanType) {
+				if (left.getType() != Type.booleanType || right.getType() != Type.booleanType) {
 					error("|| operand expects boolean expressions");
 				}
 			}
@@ -741,16 +763,16 @@ public class Compiler {
         	next();
             right = signalFactor();
 
-			if (left.getType() != right.getType()) {
-				error("The operation expects values of the same type");
-			}
+//			if (left.getType() != right.getType()) {
+//				error("The operation expects values of the same type");
+//			}
 
 			if (op == Token.MULT || op == Token.DIV) {
-				if (right.getType() != Type.intType) {
-					error("Can't use '*' or '/' operator with non int expressions");
+				if (left.getType() != Type.intType || right.getType() != Type.intType) {
+					error("operator '" + op + "' of 'Int' expects an 'Int' value");
 				}
 			} else {
-				if (right.getType() != Type.booleanType) {
+				if (left.getType() != Type.booleanType || right.getType() != Type.booleanType) {
 					error("&& operand expects boolean expressions");
 				}
 			}
@@ -906,7 +928,7 @@ public class Compiler {
 						}
 
 						if (!f.getType().getName().equals("CiaClass")) {
-							error("Trying invoke a m or variable of something that is not an object");
+							error("Trying to invoke a method or variable of something that is not an object");
 						}
 
 						c = (CianetoClass) f.getType();
@@ -922,20 +944,11 @@ public class Compiler {
 						if (m.getParamList().size() > 0)
 							error("Method " + m.getName() + " requires one or more parameters");
 
-						if (m.getType() == Type.booleanType) {
-							return new LiteralBoolean(true);
-						} else if (m.getType() == Type.intType) {
-							return new LiteralInt(0);
-						} else if (m.getType() == Type.stringType) {
-							return new LiteralString("");
-						} else {
-							return new ObjectReturn(m.getType());
-						}
-						break;
+						return new MethodReturn(m.getType());
 					case IDCOLON:
 						f = symbolTable.getInFunc(name);
 						if (f == null) {
-							error("There's no variable or parameter named" + name);
+							error("There's no variable or parameter named " + name);
 						}
 
 						if (!f.getType().getName().equals("CiaClass")) {
@@ -955,19 +968,15 @@ public class Compiler {
 						next();
 						exprList = expressionList();
 
-						if (m.getParamList().size() != exprList.size())
-							error("Method " + m.getName()" requires exactly" + m.getParamList().size() + " parameters");
+						int valid = m.checkParams(exprList);
 
-						if (m.getType() == Type.booleanType) {
-							return new LiteralBoolean(true);
-						} else if (m.getType() == Type.intType) {
-							return new LiteralInt(0);
-						} else if (m.getType() == Type.stringType) {
-							return new LiteralString("");
-						} else {
-							return new ObjectReturn(m.getType());
-						}
-						break;
+						if (valid == -1)
+							error("Method " + m.getName() + " requires exactly" + m.getParamList().size() + " parameters");
+
+						if (valid > 0)
+							error("Param " + valid + " of incompatible type. Expected: " + m.getParamList().getField(valid).getType().getName());
+
+						return new MethodReturn(m.getType());
 					case NEW:
 						c = symbolTable.getInGlobal(name);
 						if (c == null) {
@@ -976,12 +985,18 @@ public class Compiler {
 						next();
 						ObjectCreation oc = new ObjectCreation(c);
 						return oc;
-					break;
 					default:
 						error("Variable name, method name or new expected");
-						break;
+						return null;
 				}
 			}
+
+			f = symbolTable.getInFunc(name);
+			if (f == null){
+				error("Variable '" + name + "' was not declared");
+			}
+
+			return f;
 		}
 
 		if (lexer.token == Token.IN){
@@ -1030,18 +1045,9 @@ public class Compiler {
 									error("No method named " + name + " found in class " + className);
 
 								if (m.getParamList().size() > 0)
-									error("Method " + m.getName()" requires one or more parameters");
+									error("Method " + m.getName() + " requires one or more parameters");
 
-								if (m.getType() == Type.booleanType) {
-									return new LiteralBoolean(true);
-								} else if (m.getType() == Type.intType) {
-									return new LiteralInt(0);
-								} else if (m.getType() == Type.stringType) {
-									return new LiteralString("");
-								} else {
-									return new ObjectReturn(m.getType());
-								}
-								break;
+								return new MethodReturn(m.getType());
 							case IDCOLON:
 								if (!f.getType().getName().equals("CiaClass")) {
 									error("Trying invoke a method or variable of something that is not an object");
@@ -1060,38 +1066,58 @@ public class Compiler {
 								next();
 								exprList = expressionList();
 
-								if (m.getParamList().size() != exprList.size())
+								int valid = m.checkParams(exprList);
+
+								if (valid == -1)
 									error("Method " + m.getName() + " requires exactly" + m.getParamList().size() + " parameters");
 
-								if (m.getType() == Type.booleanType) {
-									return new LiteralBoolean(true);
-								} else if (m.getType() == Type.intType) {
-									return new LiteralInt(0);
-								} else if (m.getType() == Type.stringType) {
-									return new LiteralString("");
-								} else {
-									return new ObjectReturn(m.getType());
-								}
-								break;
+								if (valid > 0)
+									error("Param " + valid + " of incompatible type. Expected: " + m.getParamList().getField(valid).getType().getName());
+
+								return new MethodReturn(m.getType());
 						}
 						error("Id expected");
 					}
 
-					if (f != null)
+					if (f != null){
 						return new Field(name, f.getType());
-					else
-						return new ObjectReturn(m.getType());
+					} else {
+						if (m != null){
+							return new MethodReturn(m.getType());
+						} else {
+							error("There's no method or variable named " + name);
+							return null;
+						}
+					}
 				}
 
 				if (lexer.token == Token.IDCOLON){
+					Member member = symbolTable.getInLocal(name);
+					if (member == null || member instanceof Field){
+						error("Method not found");
+					}
+
+					m = (Method) member;
+
 					next();
-					expressionList();
-					return;
+					exprList = expressionList();
+
+					int valid = m.checkParams(exprList);
+
+					if (valid == -1)
+						error("Method " + m.getName() + " requires exactly" + m.getParamList().size() + " parameters");
+
+					if (valid > 0)
+						error("Param " + valid + " of incompatible type. Expected: " + m.getParamList().getField(valid).getType().getName());
+
+					return new MethodReturn(m.getType());
 				}
 			}
 			error ("'.' expected");
 			return null;
 		}
+
+		return null;
 	}
 
 	// Semântica pronta
@@ -1112,7 +1138,7 @@ public class Compiler {
 		if (methodName.equals("readString")){
 			return new ReadExpr(Type.stringType);
 		} else {
-			error("Method" + methodName + "does not exist");
+			error("Unknown method '" + methodName + "'");
 			return null;
 		}
 	}
@@ -1221,13 +1247,13 @@ public class Compiler {
 		String className;
 
 		if (lexer.token == Token.INT){
-			t = new TypeInt();
+			t = Type.intType;
 			next();
 		} else if (lexer.token == Token.BOOLEAN) {
-			t = new TypeBoolean();
+			t = Type.booleanType;
 			next();
 		} else if (lexer.token == Token.STRING ) {
-			t = new TypeString();
+			t = Type.stringType;
 			next();
 		} else if ( lexer.token == Token.ID ) {
 			className = lexer.getStringValue();
