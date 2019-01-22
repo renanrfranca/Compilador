@@ -39,7 +39,7 @@ public class Compiler {
 				while ( lexer.token == Token.ANNOT ) {
 					metaobjectAnnotation(metaobjectCallList);
 				}
-				classDec();
+				program.addClass(classDec());
 			}
 			catch( CompilerError e) {
 				// if there was an exception, there is a compilation error
@@ -183,6 +183,7 @@ public class Compiler {
 			if (!superClass.isOpen()){
 				error("Superclass" + superclassName + " isn't open.");
 			}
+			ciaClass.setSuperClass(superClass);
 
 			lexer.nextToken();
 		}
@@ -204,6 +205,7 @@ public class Compiler {
 		return ciaClass;
 	}
 
+	// Semântico feito
 	private MemberList memberList() {
 		MemberList m = new MemberList();
 		Field f;
@@ -224,7 +226,7 @@ public class Compiler {
 			else if ( lexer.token == Token.FUNC ) {
 				method = methodDec();
 				if (method.getName().equals("run")){
-					if (q.isPrivate() || q.isFinal() || q.isOverride()){
+					if (! q.unchanged){
 						error("Method run has to be public and accepts no other qualifiers");
 					}
 				}
@@ -239,6 +241,7 @@ public class Compiler {
 				break;
 			}
 		}
+		return m;
 	}
 
 	private void error(String msg) {
@@ -277,15 +280,17 @@ public class Compiler {
         next();
     }
 
+    // Semântico feito
 	private Method methodDec() {
 		Method m;
-		String methodName;
+		String methodName = null;
 
 		lexer.nextToken();
 		if (lexer.token == Token.ID) {
 			// unary method
 			methodName = lexer.getStringValue();
 			m = new Method(methodName);
+			currentMethod = m;
 			lexer.nextToken();
 		}
 		else if ( lexer.token == Token.IDCOLON ) {
@@ -296,16 +301,16 @@ public class Compiler {
 				error("Method run doesn't accepts any parameters");
 			}
 
-            formalParamDec();
+            m.setParams(formalParamDec());
 		}
 		else {
 			error("An identifier or identifer: was expected after 'func'");
+			m = null;
 		}
 
 		if (symbolTable.getInLocal(methodName) != null){
 			error("There's already a method named " + methodName);
 		}
-
 
 		if ( lexer.token == Token.MINUS_GT ) {
 			// method declared a return type
@@ -316,7 +321,8 @@ public class Compiler {
 			error("'{' expected");
 		}
 		next();
-		statementList();
+		m.setStatementList(statementList());
+
 		if ( lexer.token != Token.RIGHTCURBRACKET ) {
 			error("'}' expected");
 		}
@@ -328,18 +334,24 @@ public class Compiler {
 		return m;
 	}
 
-    private void formalParamDec() {
+    private FieldList formalParamDec() {
+		FieldList paramList = new FieldList();
 
 	    next();
-	    ParamDec();
+	    paramList.addField(ParamDec());
 	    while (lexer.token == Token.COMMA){
 	        next(); // consome a virgula
-	        ParamDec();
+			paramList.addField(ParamDec());
         }
+
+	    return paramList;
     }
 
-    private void ParamDec() {
+    // Semântico feito
+    private Field ParamDec() {
 		String fieldName;
+		Field f;
+
 		Type t;
 	    t = type();
         if ( lexer.token != Token.ID ) {
@@ -354,49 +366,56 @@ public class Compiler {
 			error("Redeclared parameter");
 		}
 
-		Field f = new Field(fieldName, t);
+		f = new Field(fieldName, t);
 		symbolTable.putInFunc(fieldName, f);
+
+		return f;
     }
 
-    private void statementList() {
+    private StatementList statementList() {
+		StatementList sl = new StatementList();
 		  // only '}' is necessary in this test
 		while ( lexer.token != Token.RIGHTCURBRACKET && lexer.token != Token.END ) {
-			statement();
+			sl.addElement(statement());
 		}
+
+		return sl;
 	}
 
-	private void statement() {
+	private Statement statement() {
 		boolean checkSemiColon = true;
+		Statement returnStatement;
+
 		switch ( lexer.token ) {
 		case IF:
-			ifStat();
+			returnStatement = ifStat();
 			checkSemiColon = false;
 			break;
 		case WHILE:
-			whileStat();
+			returnStatement = whileStat();
 			checkSemiColon = false;
 			break;
 		case RETURN:
-			returnStat();
+			returnStatement = returnStat();
 			break;
 		case BREAK:
-			breakStat();
+			returnStatement = breakStat();
 			break;
 		case SEMICOLON:
-//			next();
+			return new NullStat();
 			break;
 		case REPEAT:
-			repeatStat();
+			returnStatement = repeatStat();
 			break;
 		case VAR:
-			localDec();
+			returnStatement = localDec();
 			break;
 		case ASSERT:
-			assertStat();
+			returnStatement = assertStat();
 			break;
 		default:
 			if ( lexer.token == Token.ID && lexer.getStringValue().equals("Out") ) {
-				writeStat();
+				returnStatement = writeStat();
 			}
 			else {
 				if ( lexer.token == Token.IDCOLON){
@@ -405,7 +424,7 @@ public class Compiler {
 						error("Missing 'Out.'");
 					}
 				}
-				assignExpr();
+				returnStatement = assignExpr();
 			}
 
 		}
@@ -413,13 +432,29 @@ public class Compiler {
 			check(Token.SEMICOLON, "';' expected", true);
 			next();
 		}
+		return returnStatement;
 	}
 
-	private void localDec() {
+	// semantico feito
+	private LocalDecStat localDec() {
+		Type t;
+		Field f;
+		FieldList fieldList = new FieldList();
+		String name;
+		Expr expr;
+
 		next();
-		type();
+		t = type();
 		check(Token.ID, "Identifier expected");
 		while ( lexer.token == Token.ID ) {
+			name = lexer.getStringValue();
+			if (symbolTable.getInFunc(name) != null){
+				error("There's already a variable or parameter " + name);
+			}
+			f = new Field(name, t);
+			symbolTable.putInFunc(name, f);
+			fieldList.addField(f);
+
 			next();
 			if ( lexer.token == Token.COMMA ) {
 				next();
@@ -431,64 +466,124 @@ public class Compiler {
 		}
 		if ( lexer.token == Token.ASSIGN ) {
 			next();
-			// check if there is just one variable
-			expression();
+			if (fieldList.size() != 1) {
+				error("Can only define the value if declaring a single variable");
+			}
+			expr = expression();
+			if (expr.getType() != fieldList.getField(0).getType()) {
+				error("Invalid type");
+			}
 		}
 
+		return new LocalDecStat(fieldList);
 	}
 
-	private void repeatStat() {
+	private RepeatStat repeatStat() {
+		StatementList sl = new StatementList();
+		Expr repeatExpr;
+
 		next();
+		loopCounter++;
 		while ( lexer.token != Token.UNTIL && lexer.token != Token.RIGHTCURBRACKET && lexer.token != Token.END ) {
-			statement();
+			sl.addElement(statement());
 		}
+		loopCounter--;
 		check(Token.UNTIL, "'until' was expected");
 		next();
-		expression();
+		repeatExpr = expression();
+
+		if (repeatExpr.getType() != Type.booleanType) {
+			error("Repeat statements expect boolean expressions");
+		}
+
+		return new RepeatStat(sl, repeatExpr);
 	}
 
-	private void breakStat() {
+	private BreakStat breakStat() {
+		if (loopCounter == 0) {
+			error("Trying to invoke break outside of a loop");
+		}
 		next();
-
+		return new BreakStat();
 	}
 
-	private void returnStat() {
+	private ReturnStat returnStat() {
 		next();
-		expression();
+		ReturnStat rs = new ReturnStat(expression());
+
+		if (rs.getType() != currentMethod.getType()) {
+			error("Invalid return type.");
+		}
+
+		return rs;
 	}
 
-	private void whileStat() {
+	private WhileStat whileStat() {
+		WhileStat whileStat;
+		Expr whileExpr;
+		StatementList sl = new StatementList();
+		Statement s;
+
 		next();
-		expression();
+		whileExpr = expression();
+		if (whileExpr.getType() != Type.booleanType) {
+			error("While statements expect boolean expressions");
+		}
+		whileStat = new WhileStat(whileExpr);
+
 		check(Token.LEFTCURBRACKET, "'{' expected after the 'while' expression");
 		next();
+		loopCounter++;
 		while ( lexer.token != Token.RIGHTCURBRACKET && lexer.token != Token.END ) {
-			statement();
+			s = statement();
+			sl.addElement(s);
 		}
+		whileStat.setStatementList(sl);
+		loopCounter--;
 		check(Token.RIGHTCURBRACKET, "'}' was expected");
 		next();
+
+		return whileStat;
 	}
 
-	private void ifStat() {
+	// Semantico feito
+	private IfStat ifStat() {
+		IfStat ifStat;
+		Expr ifExpr;
+		StatementList ifList = new StatementList();
+		StatementList elseList = new StatementList();
+
 		next();
-		expression();
+		ifExpr = expression();
+		if (ifExpr.getType() != Type.booleanType) {
+			error("If statements expect boolean expressions");
+		}
+
+		ifStat = new IfStat(ifExpr);
+
 		check(Token.LEFTCURBRACKET, "'{' expected after the 'if' expression");
 		next();
 		while ( lexer.token != Token.RIGHTCURBRACKET && lexer.token != Token.END && lexer.token != Token.ELSE ) {
-			statement();
+			ifList.addElement(statement());
 		}
+		ifStat.setIfList(ifList);
+
 		check(Token.RIGHTCURBRACKET, "'}' was expected");
 		next();
+
 		if ( lexer.token == Token.ELSE ) {
 			next();
 			check(Token.LEFTCURBRACKET, "'{' expected after 'else'");
 			next();
 			while ( lexer.token != Token.RIGHTCURBRACKET ) {
-				statement();
+				elseList.addElement(statement());
 			}
+			ifStat.setElseList(elseList);
 			check(Token.RIGHTCURBRACKET, "'}' was expected");
 			next();
 		}
+
+		return ifStat;
 	}
 
 	private void intValue() {
@@ -497,26 +592,54 @@ public class Compiler {
     }
 
 	/**
-
+		Semantico feito
 	 */
-	private void writeStat() {
+	private WriteStat writeStat() {
+		Expr expr;
+		boolean ln = false;
+
 		next();
 		check(Token.DOT, "a '.' was expected after 'Out'");
 		next();
 		check(Token.IDCOLON, "'print:' or 'println:' was expected after 'Out.'");
+
 		String printName = lexer.getStringValue();
+		if (printName.equals("print")) {
+			ln = false;
+		} else if (printName.equals("println")) {
+			ln = true;
+		} else {
+			error("'print:' or 'println:' was expected after 'Out.'");
+		}
+
 		next();
 
-		expression();
+		expr = expression();
+		if (! expr.getType().isCompatible(Type.stringType)) {
+			error("Write expression must be of type string");
+		}
+
+		return new WriteStat(expr, ln);
 	}
 
-	private void assignExpr(){
-	    expression();
+	//	Semântico feito
+	private AssignStat assignExpr(){
+		Expr left;
+		boolean hasAssign = false;
+		Expr right = null;
+
+		left = expression();
         if (lexer.token == Token.ASSIGN){
+        	hasAssign = true;
             next();
-            expression();
+            right = expression();
         }
-        // next(); (expression vai dar next?)
+
+        if (! right.getType().isCompatible(left.getType())) {
+			error("Invalid types");
+		}
+
+        return new AssignStat(left, hasAssign, right);
     }
 
 	private Expr expression() {
@@ -696,13 +819,43 @@ public class Compiler {
 
 			next();
 
-			if (lexer.token == Token.DOT){
-			    Field param = currentMethod.getParam(name);
+			if (lexer.token == Token.DOT) {
+				next();
+
+				switch (lexer.token) {
+					case ID:
+						Field f = currentMethod.getParam(name);
+						if (f == null) {
+							f = symbolTable.getInFunc(name);
+							if (f == null)
+								error("Parameter " + name + "does not exist");
+						}
+
+						if (! f.getType().getName().equals("CiaClass")) {
+							error("Trying invoke a method or variable of something that is not an object");
+						}
+
+						name = lexer.getStringValue();
+						if (symbolTable.getInGlobal())
+
+						break;
+					case IDCOLON:
+						break;
+					case NEW:
+						break;
+					default:
+						error("Variable name, method name or new expected");
+						break;
+				}
+			}
+
+
+
 
 			    if (param != null){
                     if (lexer.token == Token.ID){
-                        if (! param.getType().equals("CiaClass")){
-                            error("Trying invoke a method or variable of something that is not a class");
+                        if (! param.getType().getName().equals("CiaClass")){
+                            error("");
                         }
                         name = lexer.getStringValue();
                         Method m =
@@ -804,6 +957,7 @@ public class Compiler {
 		}
 	}
 
+	// Semântica feita
 	private Field fieldDec() {
 		String fieldName;
 		Type t;
@@ -927,6 +1081,7 @@ public class Compiler {
 		}
 		else {
 			this.error("A type was expected");
+			t = null;
 		}
 
 		return t;
@@ -966,16 +1121,20 @@ public class Compiler {
 
 		return q;
 	}
-	/**
-	 * change this method to 'private'.
-	 * uncomment it
-	 * implement the methods it calls
-	 */
-	public Statement assertStat() {
 
+	// Semantico feito
+	private AssertStat assertStat() {
+		Expr expr;
+		LiteralString string;
+		int lineNumber;
+
+		lineNumber = lexer.getLineNumber();
 		lexer.nextToken();
-		int lineNumber = lexer.getLineNumber();
-		expression();
+		expr = expression();
+		if (! expr.getType().isCompatible(Type.stringType)) {
+			error("Assert expression must be a String");
+		}
+
 		if ( lexer.token != Token.COMMA ) {
 			this.error("',' expected after the expression of the 'assert' statement");
 		}
@@ -983,10 +1142,11 @@ public class Compiler {
 		if ( lexer.token != Token.LITERALSTRING ) {
 			this.error("A literal string expected after the ',' of the 'assert' statement");
 		}
-		String message = lexer.getLiteralStringValue();
+
+		string = new LiteralString(lexer.getLiteralStringValue());
 		lexer.nextToken();
 
-		return null;
+		return new AssertStat(expr, string, lineNumber);
 	}
 
 
@@ -1060,5 +1220,6 @@ public class Compiler {
 	private ErrorSignaller	signalError;
 	private CianetoClass    currentClass;
 	private Method          currentMethod;
+	private int 			loopCounter = 0;
 
 }

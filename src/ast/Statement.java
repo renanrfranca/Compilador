@@ -1,7 +1,9 @@
 package ast;
 
 abstract public class Statement {
-
-	abstract public void genC(PW pw);
+	public static Statement  = new TypeBoolean();
+	public static Type intType = new TypeInt();
+	public static Type stringType = new TypeString();
+	public static Type nullType = new TypeNull();
 
 }

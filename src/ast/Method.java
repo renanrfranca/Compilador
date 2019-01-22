@@ -7,6 +7,7 @@ public class Method extends Member {
     private String name;
     private Type returnType;
     private FieldList params;
+    private StatementList statementList;
 
 
     public Method(String name) {
@@ -29,6 +30,10 @@ public class Method extends Member {
         return params.getField(name);
     }
 
+    public void setParams(FieldList params){
+        this.params = params;
+    }
+
     public FieldList getParamList(){
         return params;
     }
@@ -40,6 +45,10 @@ public class Method extends Member {
 
     public Qualifiers getQualifiers() {
         return qualifiers;
+    }
+
+    public void setStatementList(StatementList sl){
+        this.statementList = sl;
     }
 
     @Override

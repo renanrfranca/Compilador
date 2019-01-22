@@ -11,14 +11,17 @@ public class Qualifiers {
     public void setPrivate(){
         this.qPublic = false;
         this.qPrivate = true;
+        this.unchanged = false;
     }
 
     public void setFinal() {
         this.qFinal = true;
+        this.unchanged = false;
     }
 
     public void setOverride() {
         this.qOverride = true;
+        this.unchanged = false;
     }
 
     public boolean isPrivate() {

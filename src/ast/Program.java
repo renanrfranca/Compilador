@@ -12,13 +12,6 @@ public class Program {
 		this.compilationErrorList = compilationErrorList;
 	}
 
-
-	public void genJava(PW pw) {
-	}
-
-	public void genC(PW pw) {
-	}
-	
 	public ArrayList<CianetoClass> getClassList() {
 		return classList;
 	}
@@ -37,11 +30,12 @@ public class Program {
 		return compilationErrorList;
 	}
 
+	public void addClass(CianetoClass cClass){
+		this.classList.add(cClass);
+	}
 	
 	private ArrayList<CianetoClass> classList;
 	private ArrayList<MetaobjectAnnotation> metaobjectCallList;
-	
-	ArrayList<CompilationError> compilationErrorList;
-
+	private ArrayList<CompilationError> compilationErrorList;
 	
 }
