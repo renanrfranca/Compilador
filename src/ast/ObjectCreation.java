@@ -9,6 +9,6 @@ public class ObjectCreation extends Expr {
 
     @Override
     public Type getType() {
-        return this.ciaClass.;
+        return this.ciaClass;
     }
 }

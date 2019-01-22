@@ -402,7 +402,7 @@ public class Compiler {
 			returnStatement = breakStat();
 			break;
 		case SEMICOLON:
-			return new NullStat();
+			returnStatement = new NullStat();
 			break;
 		case REPEAT:
 			returnStatement = repeatStat();
@@ -642,6 +642,7 @@ public class Compiler {
         return new AssignStat(left, hasAssign, right);
     }
 
+    // Semântico feito
 	private Expr expression() {
 		Expr left;
 		Token op;
@@ -675,6 +676,7 @@ public class Compiler {
 		return exprList;
 	}
 
+	// Semantico feito
     private Expr simpleExpression() {
 		Expr left = SumSubExpression();
 
@@ -695,62 +697,132 @@ public class Compiler {
 		return left;
     }
 
+    // Semantica feita
     private Expr SumSubExpression() {
-	    term();
+		Expr left;
+		Token op;
+		Expr right;
+
+	    left = term();
 	    while (isLowOperator(lexer.token)) { // “+” | “−” | “||”
+	    	op = lexer.token;
 	    	next();
-	        term();
+	        right = term();
+
+	        if (left.getType() != right.getType()) {
+				error("The operation expects values of the same type");
+			}
+
+	        if (op == Token.PLUS || op == Token.MINUS) {
+				if (right.getType() != Type.intType) {
+					error("Can't use '+' or '-' operator with non int expressions");
+				}
+			} else {
+				if (right.getType() != Type.booleanType) {
+					error("|| operand expects boolean expressions");
+				}
+			}
+
+	        left = new CompositeExpr(left, op, right);
         }
+
+	    return left;
     }
 
-    private void term() {
-	    signalFactor();
+    // Semantico feito
+    private Expr term() {
+		Expr left;
+		Token op;
+		Expr right;
+
+	    left = signalFactor();
         while (isHighOperator(lexer.token)) { // “∗” | “/” | “&&”
+        	op = lexer.token;
         	next();
-            signalFactor();
+            right = signalFactor();
+
+			if (left.getType() != right.getType()) {
+				error("The operation expects values of the same type");
+			}
+
+			if (op == Token.MULT || op == Token.DIV) {
+				if (right.getType() != Type.intType) {
+					error("Can't use '*' or '/' operator with non int expressions");
+				}
+			} else {
+				if (right.getType() != Type.booleanType) {
+					error("&& operand expects boolean expressions");
+				}
+			}
+
+			left = new CompositeExpr(left, op, right);
         }
+
+        return left;
     }
 
-    private void signalFactor() {
+    // Semantico feito
+    private Expr signalFactor() {
+		Expr e;
+		boolean signal = false;
+
 	    if (isSignal(lexer.token)){
+	    	signal = true;
 	        next();
         }
-	    factor();
+	    e = factor();
+
+	    if (signal) {
+			if (e.getType() != Type.intType) {
+				error("Non integer expressions can't have a signal");
+			}
+		}
+
+	    return e;
     }
 
-	private Type factor() {
-		Type t;
+    // Semantico feito
+	private Expr factor() {
+		Expr e;
 
 		if (isBasicValue(lexer.token)) {
-			if (lexer.token == Token.TRUE || lexer.token == Token.FALSE){
-				next();
-				return Type.booleanType;
-			} else if (lexer.token == Token.LITERALINT){
-				next();
-				return Type.intType;
-			} else {
-				next();
-				return Type.stringType;
+			switch (lexer.token) {
+				case TRUE:
+					next();
+					return new LiteralBoolean(true);
+				case FALSE:
+					next();
+					return new LiteralBoolean(false);
+				case LITERALINT:
+					next();
+					return new LiteralInt(lexer.getNumberValue());
+				case LITERALSTRING:
+					next();
+					return new LiteralString(lexer.getLiteralStringValue());
 			}
 		}
 
 		if (lexer.token == Token.LEFTPAR){
 			next();
-			t = expression();
+			e = expression();
 			if (lexer.token != Token.RIGHTPAR)
 				error("')' expected");
 			next();
-			return t;
+			return e;
 		}
 
 		if (lexer.token == Token.NOT){
 			next();
-			return factor(); // Já fif (lexer.token != Token.READINT && lexer.token != Token.az next;
+			e =  factor(); // Já fif (lexer.token != Token.READINT && lexer.token != Token.az next;
+
+			if (e.getType() != Type.booleanType) {
+				error ("! operator must precede a boolean expression");
+			}
 		}
 
 		if (lexer.token == Token.NULL){
 			next();
-			return Type.nullType;
+			return new NullExpr();
 		}
 
 		// ObjectCreation foi mesclado com o primaryExpression!
@@ -764,12 +836,16 @@ public class Compiler {
 
 		// Se não caiu em nenhum dos casos, não é uma expressão
 		error("Expression expected");
+		return null;
 	}
 
 	// objectCreation mesclado
 	private Expr primaryExpression() {
-        String name;
-        Method m;
+        String name = null;
+        Method m = null;
+        Field f = null;
+		CianetoClass c = null;
+		ExpressionList exprList = null;
 
 	    if (lexer.token == Token.SUPER){
             CianetoClass superClass = currentClass.getSuperClass();
@@ -788,7 +864,7 @@ public class Compiler {
                     error("Method not found in super class");
                 }
 				next();
-                ExpressionList exprList = expressionList();
+                exprList = expressionList();
 
                 int valid = m.checkParams(exprList);
 
@@ -824,81 +900,92 @@ public class Compiler {
 
 				switch (lexer.token) {
 					case ID:
-						Field f = currentMethod.getParam(name);
+						f = symbolTable.getInFunc(name);
 						if (f == null) {
-							f = symbolTable.getInFunc(name);
-							if (f == null)
-								error("Parameter " + name + "does not exist");
+							error("There's no variable or parameter named" + name);
 						}
 
-						if (! f.getType().getName().equals("CiaClass")) {
+						if (!f.getType().getName().equals("CiaClass")) {
+							error("Trying invoke a m or variable of something that is not an object");
+						}
+
+						c = (CianetoClass) f.getType();
+						String className = c.getClassName();
+						c = symbolTable.getInGlobal(className);
+
+						name = lexer.getStringValue();
+						m = c.getMethod(name);
+
+						if (m == null)
+							error("No method named " + name + " found in class " + className);
+
+						if (m.getParamList().size() > 0)
+							error("Method " + m.getName() + " requires one or more parameters");
+
+						if (m.getType() == Type.booleanType) {
+							return new LiteralBoolean(true);
+						} else if (m.getType() == Type.intType) {
+							return new LiteralInt(0);
+						} else if (m.getType() == Type.stringType) {
+							return new LiteralString("");
+						} else {
+							return new ObjectReturn(m.getType());
+						}
+						break;
+					case IDCOLON:
+						f = symbolTable.getInFunc(name);
+						if (f == null) {
+							error("There's no variable or parameter named" + name);
+						}
+
+						if (!f.getType().getName().equals("CiaClass")) {
 							error("Trying invoke a method or variable of something that is not an object");
 						}
 
-						name = lexer.getStringValue();
-						if (symbolTable.getInGlobal())
+						c = (CianetoClass) f.getType();
+						className = c.getClassName();
+						c = symbolTable.getInGlobal(className);
 
-						break;
-					case IDCOLON:
+						name = lexer.getStringValue();
+						m = c.getMethod(name);
+
+						if (m == null)
+							error("No method named " + name + " found in class " + className);
+
+						next();
+						exprList = expressionList();
+
+						if (m.getParamList().size() != exprList.size())
+							error("Method " + m.getName()" requires exactly" + m.getParamList().size() + " parameters");
+
+						if (m.getType() == Type.booleanType) {
+							return new LiteralBoolean(true);
+						} else if (m.getType() == Type.intType) {
+							return new LiteralInt(0);
+						} else if (m.getType() == Type.stringType) {
+							return new LiteralString("");
+						} else {
+							return new ObjectReturn(m.getType());
+						}
 						break;
 					case NEW:
-						break;
+						c = symbolTable.getInGlobal(name);
+						if (c == null) {
+							error(name + " is not a parameter or a class.");
+						}
+						next();
+						ObjectCreation oc = new ObjectCreation(c);
+						return oc;
+					break;
 					default:
 						error("Variable name, method name or new expected");
 						break;
 				}
 			}
-
-
-
-
-			    if (param != null){
-                    if (lexer.token == Token.ID){
-                        if (! param.getType().getName().equals("CiaClass")){
-                            error("");
-                        }
-                        name = lexer.getStringValue();
-                        Method m =
-                        next();
-                        return;
-                    }
-
-                    if (lexer.token == Token.IDCOLON){
-                        next();
-                        expressionList();
-                        return;
-                    }
-                } else {
-                    CianetoClass cianetoClass = symbolTable.getInGlobal(name);
-			        if (cianetoClass == null){
-			            error(name + " is not a parameter or a class.");
-                    }
-			        next();
-                    // objectCreation mesclado
-                    if (lexer.token == Token.NEW){
-                        next();
-                        ObjectCreation oc = new ObjectCreation(cianetoClass);
-                        return oc;
-                    } else {
-                        error("'new' expected");
-                        return null;
-                    }
-                }
-
-			    next();
-
-
-
-			} else {
-                Field variable = currentClass.getField(name);
-                if (variable == null)
-                    error("Variable " + name + "does not exist.");
-                return variable;
-            }
 		}
 
 		if (lexer.token == Token.IN){
-			readExpr();
+			return readExpr();
 		}
 
 		if (lexer.token == Token.SELF){
@@ -906,23 +993,94 @@ public class Compiler {
 			if (lexer.token == Token.DOT){
 				next();
 				if (lexer.token == Token.ID){
+					name = lexer.getStringValue();
+					Member member = symbolTable.getInLocal(name);
+
+					if (member == null){
+						error("Method or variable " + name + "not found");
+					}
+					if (member instanceof Field){
+						f = (Field) member;
+					} else {
+						m = (Method) member;
+					}
 					next();
 
+
 					if (lexer.token == Token.DOT){
-						next();
-						if (lexer.token == Token.ID){
-							next();
-							return;
+						if (f == null){
+							error("Trying to access a method of something that is not an object");
 						}
-						if (lexer.token == Token.IDCOLON){
-							next();
-							expressionList();
-							return;
+						next();
+
+						switch (lexer.token) {
+							case ID:
+								if (!f.getType().getName().equals("CiaClass")) {
+									error("Trying invoke a m or variable of something that is not an object");
+								}
+
+								c = (CianetoClass) f.getType();
+								String className = c.getClassName();
+								c = symbolTable.getInGlobal(className);
+
+								name = lexer.getStringValue();
+								m = c.getMethod(name);
+
+								if (m == null)
+									error("No method named " + name + " found in class " + className);
+
+								if (m.getParamList().size() > 0)
+									error("Method " + m.getName()" requires one or more parameters");
+
+								if (m.getType() == Type.booleanType) {
+									return new LiteralBoolean(true);
+								} else if (m.getType() == Type.intType) {
+									return new LiteralInt(0);
+								} else if (m.getType() == Type.stringType) {
+									return new LiteralString("");
+								} else {
+									return new ObjectReturn(m.getType());
+								}
+								break;
+							case IDCOLON:
+								if (!f.getType().getName().equals("CiaClass")) {
+									error("Trying invoke a method or variable of something that is not an object");
+								}
+
+								c = (CianetoClass) f.getType();
+								className = c.getClassName();
+								c = symbolTable.getInGlobal(className);
+
+								name = lexer.getStringValue();
+								m = c.getMethod(name);
+
+								if (m == null)
+									error("No method named " + name + " found in class " + className);
+
+								next();
+								exprList = expressionList();
+
+								if (m.getParamList().size() != exprList.size())
+									error("Method " + m.getName() + " requires exactly" + m.getParamList().size() + " parameters");
+
+								if (m.getType() == Type.booleanType) {
+									return new LiteralBoolean(true);
+								} else if (m.getType() == Type.intType) {
+									return new LiteralInt(0);
+								} else if (m.getType() == Type.stringType) {
+									return new LiteralString("");
+								} else {
+									return new ObjectReturn(m.getType());
+								}
+								break;
 						}
 						error("Id expected");
 					}
 
-					return;
+					if (f != null)
+						return new Field(name, f.getType());
+					else
+						return new ObjectReturn(m.getType());
 				}
 
 				if (lexer.token == Token.IDCOLON){
@@ -931,10 +1089,12 @@ public class Compiler {
 					return;
 				}
 			}
-			return;
+			error ("'.' expected");
+			return null;
 		}
 	}
 
+	// Semântica pronta
 	private ReadExpr readExpr() {
 		String methodName;
 		next();

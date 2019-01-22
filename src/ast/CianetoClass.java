@@ -39,6 +39,10 @@ public class CianetoClass extends Type {
       return false;
    }
 
+   public String getClassName() {
+      return className;
+   }
+
    public void setSuperClass(CianetoClass superClass) {
       this.superClass = superClass;
    }
