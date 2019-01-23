@@ -1,3 +1,8 @@
+/********* Compilador de Cianeto *********
+ *Evelin Priscila Ferreira Soares 489832 *
+ *Renan Rossignatti de França     489697 *
+ *****************************************/
+
 
 package comp;
 
@@ -234,9 +239,7 @@ public class Compiler {
 				currentClass.addField(f);
 			}
 			else if ( lexer.token == Token.FUNC ) {
-				method = methodDec(q);
-
-				currentClass.addMethod(method, q.isPrivate());
+				methodDec(q);
 			}
 			else {
 				if (lexer.token == Token.SEMICOLON){
@@ -295,7 +298,7 @@ public class Compiler {
     }
 
     // Semântico feito
-	private Method methodDec(Qualifiers q) {
+	private void methodDec(Qualifiers q) {
 		Method m;
 		String methodName = null;
 		FieldList params;
@@ -326,6 +329,7 @@ public class Compiler {
 		}
 
 		m.setQualifiers(q);
+        currentClass.addMethod(m, q.isPrivate());
 		currentMethod = m;
 
         if (m.getName().equals("run")){
@@ -379,8 +383,6 @@ public class Compiler {
 		symbolTable.putInlocal(methodName, m);
 		symbolTable.removeFuncTable();
 		next();
-
-		return m;
 	}
 
     private FieldList formalParamDec() {
@@ -422,16 +424,13 @@ public class Compiler {
     }
 
     private StatementList statementList() {
-		boolean hasReturnStat = false;
 		Statement s;
 
 		StatementList sl = new StatementList();
 		  // only '}' is necessary in this test
+        hasReturnStat = false;
 		while ( lexer.token != Token.RIGHTCURBRACKET && lexer.token != Token.END ) {
 			s = statement();
-			if (s instanceof ReturnStat){
-				hasReturnStat = true;
-			}
 			sl.addElement(s);
 		}
 
@@ -440,6 +439,8 @@ public class Compiler {
 				error("Missing 'return' statement in method '" + currentMethod.getName() + "'");
 			}
 		}
+
+        hasReturnStat = false;
 
 		return sl;
 	}
@@ -522,9 +523,6 @@ public class Compiler {
 				next();
 				check(Token.ID, "Missing identifier");
 			}
-			else {
-				check(Token.SEMICOLON, "Missing ';'", true);
-			}
 		}
 		if ( lexer.token == Token.ASSIGN ) {
 			next();
@@ -536,6 +534,8 @@ public class Compiler {
 				error("Invalid type");
 			}
 		}
+
+        check(Token.SEMICOLON, "Missing ';'", true);
 
 		return new LocalDecStat(fieldList);
 	}
@@ -577,10 +577,11 @@ public class Compiler {
             error("Illegal 'return' statement. Method returns 'void'");
         }
 
-		if (rs.getType() != currentMethod.getType()) {
+		if (! currentMethod.getType().isCompatible(rs.getType())) {
 			error("Invalid return type.");
 		}
 
+		hasReturnStat = true;
 		return rs;
 	}
 
@@ -709,7 +710,7 @@ public class Compiler {
                 }
             }
 
-			if (! right.getType().isCompatible(left.getType())) {
+			if (! left.getType().isCompatible(right.getType())) {
 			    if (left.getType().getName().equals("CiaClass")){
 			        error("Type error: type of the right-hand side of the assignment is not a subclass of the left-hand side");
                 }
@@ -745,7 +746,9 @@ public class Compiler {
             right = simpleExpression();
 
             if (! left.getType().isCompatible(right.getType())){
-            	error("Incompatible types");
+                if (! right.getType().isCompatible(left.getType())){
+                    error("Incompatible types");
+                }
 			}
             CompositeExpr ce = new CompositeExpr(left, op, right);
             return ce;
@@ -895,11 +898,13 @@ public class Compiler {
 					next();
 					return new LiteralBoolean(false);
 				case LITERALINT:
+				    int literalInt = lexer.getNumberValue();
 					next();
-					return new LiteralInt(lexer.getNumberValue());
+					return new LiteralInt(literalInt);
 				case LITERALSTRING:
+				    String literalString = lexer.getLiteralStringValue();
 					next();
-					return new LiteralString(lexer.getLiteralStringValue());
+					return new LiteralString(literalString);
 			}
 		}
 
@@ -919,6 +924,7 @@ public class Compiler {
 			if (e.getType() != Type.booleanType) {
 				error ("! operator must precede a boolean expression");
 			}
+			return e;
 		}
 
 		if (lexer.token == Token.NULL){
@@ -1127,6 +1133,7 @@ public class Compiler {
 								if (m.getParamList().size() > 0)
 									error("Method " + m.getName() + " requires one or more parameters");
 
+								next();
 								return new MethodReturn(m.getType());
 							case IDCOLON:
 								if (!f.getType().getName().equals("CiaClass")) {
@@ -1188,8 +1195,7 @@ public class Compiler {
 					return new MethodReturn(m.getType());
 				}
 			}
-			error ("'.' expected");
-			return null;
+            return new MethodReturn(currentClass);
 		}
 
 		return null;
@@ -1392,8 +1398,8 @@ public class Compiler {
 		lineNumber = lexer.getLineNumber();
 		lexer.nextToken();
 		expr = expression();
-		if (! expr.getType().isCompatible(Type.stringType)) {
-			error("Assert expression must be a String");
+		if (! expr.getType().isCompatible(Type.booleanType)) {
+			error("Assert expression must be boolean");
 		}
 
 		if ( lexer.token != Token.COMMA ) {
@@ -1482,5 +1488,6 @@ public class Compiler {
 	private CianetoClass    currentClass;
 	private Method          currentMethod;
 	private int 			loopCounter = 0;
-    private Boolean         readPlus = false;
+    private boolean         readPlus = false;
+    private boolean         hasReturnStat;
 }
