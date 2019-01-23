@@ -335,14 +335,7 @@ public class Lexer {
     }
 
     public String getStringValue() {
-	    String returnString;
-
-	    returnString = stringValue;
-
-	    if (token == Token.IDCOLON){
-            return returnString.substring(0, returnString.length() - 1);
-        }
-       return returnString;
+       return stringValue;
     }
 
     public int getNumberValue() {

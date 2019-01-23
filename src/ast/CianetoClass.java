@@ -31,11 +31,16 @@ public class CianetoClass extends Type {
          if (ciaClass.className.equals(this.className)){
             return true;
          } else {
-            if (this.superClass != null) {
-               return this.superClass.isCompatible(other);
+            if (ciaClass.superClass != null) {
+               return this.isCompatible(ciaClass.superClass);
             }
          }
       }
+
+      if (other == Type.nullType){
+         return true;
+      }
+
       return false;
    }
 
@@ -76,7 +81,7 @@ public class CianetoClass extends Type {
       m = getPublicMethod(name);
 
       if (m == null)
-         m = this.publicMethodList.getMethod(name);
+         m = this.privateMethodList.getMethod(name);
 
       if (m == null) {
          if (superClass != null)

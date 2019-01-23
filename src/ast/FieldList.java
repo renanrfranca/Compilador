@@ -32,4 +32,20 @@ public class FieldList {
     public int size(){
         return fieldList.size();
     }
+
+    public boolean isSameAs(FieldList fl){
+        if (fieldList.size() != fl.size()){
+            return false;
+        }
+
+        int i;
+
+        for (i=0;i<fieldList.size();i++){
+            if (fl.getField(i).getType() != fieldList.get(i).getType()){
+                return false;
+            }
+        }
+
+        return true;
+    }
 }

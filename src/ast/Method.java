@@ -75,4 +75,16 @@ public class Method extends Member {
         }
         return 0;
     }
+
+    public boolean hasSameSignature(Method other){
+        if (this.returnType != other.getType()){
+            return false;
+        }
+
+        if (! this.getParamList().isSameAs(other.getParamList())){
+            return false;
+        }
+
+        return true;
+    }
 }
